@@ -21,8 +21,8 @@
 #define BLOCKS 1
 #define BLOCK_SIZE 50
 //#define PRINT_CONTENT
-#define CHAR_OFFSET 15
-#define ITERATIONS_PER_ATTACK 20
+#define CHAR_OFFSET 12
+#define ITERATIONS_PER_ATTACK 200
 
 #define NAMING_THINGS_IS_HARD 1000
 #define SCALE(value, scalar) (value / NAMING_THINGS_IS_HARD) * scalar
@@ -47,93 +47,46 @@ typedef struct {
 
 
 Stats* iterateAttack(Stats* stats, char* password){
+    char* guess = (char*) malloc((BLOCK_SIZE + 1) * sizeof(char*));
+    guess[BLOCK_SIZE] = '\0';
     for (int x = 0; x < ITERATIONS_PER_ATTACK; ++x) {
         for (int  i = 0; i < SOURCE_LENGTH; i++) {
-//        printf("%c: ", source[i]);
-            char* guess = (char*) malloc((BLOCK_SIZE + 1) * sizeof(char*));
-            guess[BLOCK_SIZE] = '\0';
             fillWithChar(guess,BLOCK_SIZE,0,&source[i]);
             double startTime = getCurrentTime();
-            if(strcmp(password, guess)){
+            if(strcmp(password, guess) == 0){
                 (void)0;
             }else{
                 (void)0;
             }
             double diffTime = getCurrentTime() - startTime;
             stats->results[stats->iteration][i] = diffTime;
-//        printf("%f ", diffTime);
+//            if(i == 0){
+//                printf("%.2f ", diffTime);
+//            }
 
-            free(guess);
-//        printf("\n");
         }
-//    printf("\n");
-
-
-
-        for (int  i = 0; i < SOURCE_LENGTH; i++) {
-            double rowSum = 0;
-            for (int j = 0; j < stats->iteration; ++j) {
-                rowSum += stats->results[j][i];
-            }
-            double avg = rowSum / stats->iteration;
-            stats->averages[i] = avg;
-            if(avg > stats->averages[stats->highestCharIndex]){
-                stats->highestCharIndex = i;
-            }
-        }
-        stats->iteration++;
-
     }
+
+    for (int  i = 0; i < SOURCE_LENGTH; i++) {
+        double rowSum = 0;
+        for (int j = 0; j < stats->iteration; ++j) {
+            rowSum += stats->results[j][i];
+        }
+        double avg = rowSum / stats->iteration;
+        stats->averages[i] = avg;
+        if(avg > stats->averages[stats->highestCharIndex]){
+            stats->highestCharIndex = i;
+        }
+    }
+    stats->iteration++;
+    free(guess);
+
 
     return stats;
 }
 
 int main() {
-//    char* password = (char*) malloc((BLOCK_SIZE + 1) * sizeof(char*));
-//    password[BLOCK_SIZE] = '\0';
-//
-//    fillWithChar(password, BLOCK_SIZE , 0, "u");
-//    fillWithChar(password, BLOCK_SIZE , BLOCK_SIZE / 2, "k");
-//    //password[passwordLength - 1] = 'a';
-//    //password = heapString("");
-//
-//    printf("Password\n%s\n",  password);
-//    // Attacking them side channels
-//    Stats stats;
-//    printf("Attacking them side channels\n");
-//    for (int i = 0; i < ITERATIONS; i++) {
-//        for (int  j = 0; j < SOURCE_LENGTH; j++) {
-//            char* guess = (char*) malloc((BLOCK_SIZE + 1) * sizeof(char*));
-//            guess[BLOCK_SIZE] = '\0';
-//            fillWithChar(guess,BLOCK_SIZE,0,&source[j]);
-//            double startTime = getCurrentTime();
-//            if(strcmp(password, guess) == 0){
-//                (void)0;
-//            }else{
-//                (void)0;
-//            }
-//            stats.results[i][j] = getCurrentTime() - startTime;
-//        }
-//    }
-//
-//    // Compute averages
-//    double totalSum = 0;
-//    stats.highestCharIndex = 0;
-//    for (int i = 0; i < SOURCE_LENGTH; i++) {
-//        double sum = 0;
-//        for (int  j = SKIPP_START; j < ITERATIONS; j++) {
-//            double num = stats.results[j][i];
-//            sum += num;
-//        }
-//        float avg = (float) sum / (float) (ITERATIONS - SKIPP_START);
-//        stats.averages[i] = avg;
-//        if(avg > stats.averages[stats.highestCharIndex]){
-//            stats.highestCharIndex = i;
-//        }
-//        totalSum += sum;
-//    }
-//    stats.totalAverage =  (float) totalSum / (float) (SOURCE_LENGTH * (ITERATIONS - SKIPP_START));
-//
+
 //    // Compute variance and standard div
 //    for (int charIndex = 0; charIndex < SOURCE_LENGTH; charIndex++) {
 //        double sumSquares = 0;
@@ -147,32 +100,6 @@ int main() {
 //        }
 //
 //    }
-//
-//    //Print results
-//    for (int i = 0; i < SOURCE_LENGTH; i++) {
-//        if(stats.highestCharIndex == i){
-//            printf("\33[31m");
-//        }
-//
-//        printf("%c - Avg: %.2f  Variance: %.2f ", source[i],stats.averages[i], stats.variance[i]);
-//        #ifdef PRINT_CONTENT
-//        printf("\t[");
-//        for (int  j = SKIPP_START; j < ITERATIONS; j++) {
-//            //printf("%.4f ", stats.results[j][i]);
-////            continue;
-//            double value = stats.zScore[j][i];
-//            if(fabs(value) < 1 || stats.highestCharIndex == i){
-//                printf("%.2f ", value);
-//            }else{
-//                printf("\33[31m%.2f\33[0m ", value);
-//            }
-//        }
-//        printf("]");
-//        #endif
-//        printf("\33[0m\n");
-//    }
-//    printf("Total Average: %.2f\nBest guess: %c", stats.totalAverage, source[stats.highestCharIndex]);
-//
     // Raylib
     SetTraceLogLevel(LOG_FATAL);
     InitWindow(WIDTH, HEIGHT, "Side Channel attack");
