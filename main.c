@@ -6,142 +6,196 @@
 #include <stdint.h>
 #include <math.h>
 
-
-
-
 #define WIDTH 1000
-#define HEIGHT 600
+#define HEIGHT 700
 #define MARGIN 20
 #define FRAME_TARGET 30
 #define FONT_SIZE 20
 
 #define SOURCE_LENGTH 26
-#define ITERATIONS 10000
-#define SKIPP_START 2
+#define MAX_ITERATIONS 10000
+#define SKIPP_START 5
 #define BLOCKS 1
 #define BLOCK_SIZE 50
-//#define PRINT_CONTENT
-#define CHAR_OFFSET 12
-#define ITERATIONS_PER_ATTACK 200
+#define ITERATIONS_PER_PRESS 50
+#define ZSCORE_THRESHOLD 3.0f
 
-#define NAMING_THINGS_IS_HARD 1000
-#define SCALE(value, scalar) (value / NAMING_THINGS_IS_HARD) * scalar
+#define SCALAR 1200
+#define SCALE(value, scalar) (value / SCALAR) * scalar
 
 char* fillWithChar(char* buffer, int length, int offset, const char* character);
-double getCurrentTime();
+long getCurrentTime();
 char* heapString(char constString[]);
-
+void generatePassword(char *password, int passwordLength, int charIndex);
 char source[] = "abcdefghijklmnopqrstuvwxyz";
 
 typedef struct {
-    double results[ITERATIONS][SOURCE_LENGTH];
+    double results[MAX_ITERATIONS][SOURCE_LENGTH];
     int iteration;
     double averages[SOURCE_LENGTH];
     double variance[SOURCE_LENGTH];
     double totalAverage;
     double standardDeviation;
-    double zScore[ITERATIONS][SOURCE_LENGTH];
+    double zScore[MAX_ITERATIONS][SOURCE_LENGTH];
+    double bestGuess[MAX_ITERATIONS];
     int highestCharIndex;
-    bool skippedIndices[SOURCE_LENGTH];
+    int skippedCount;
+    double pValue;
+    bool skippedIndices[MAX_ITERATIONS];
 } Stats;
 
+void resetStats(Stats* stats);
 
-Stats* iterateAttack(Stats* stats, char* password){
-    char* guess = (char*) malloc((BLOCK_SIZE + 1) * sizeof(char*));
-    guess[BLOCK_SIZE] = '\0';
-    for (int x = 0; x < ITERATIONS_PER_ATTACK; ++x) {
+
+Stats* iterateAttack(Stats* stats, char* password, int passwordLength){
+
+    char** strings = (char**) malloc(SOURCE_LENGTH * sizeof(char*));
+    for (int i = 0; i < SOURCE_LENGTH; ++i) {
+        char* character = (char*)malloc(passwordLength + 1);
+        fillWithChar(character,passwordLength,0,&source[i]);
+        character[passwordLength] = '\0';
+        strings[i] = character;
+    }
+
+    for (int x = 0; x < ITERATIONS_PER_PRESS + SKIPP_START; x++) {
         for (int  i = 0; i < SOURCE_LENGTH; i++) {
-            fillWithChar(guess,BLOCK_SIZE,0,&source[i]);
-            double startTime = getCurrentTime();
-            if(strcmp(password, guess) == 0){
+            long startTime = getCurrentTime();
+            if(strcmp(password, strings[i]) == 0){
                 (void)0;
             }else{
                 (void)0;
             }
-            double diffTime = getCurrentTime() - startTime;
+            long endTime = getCurrentTime();
+            long diffTime = endTime - startTime;
             stats->results[stats->iteration][i] = diffTime;
-//            if(i == 0){
-//                printf("%.2f ", diffTime);
-//            }
-
+        }
+        if(x > SKIPP_START){
+            stats->iteration++;
         }
     }
 
+    int iterationsCount = stats->iteration;
+    double totalSumAvg = 0;
+    double totalSumVariance = 0;
     for (int  i = 0; i < SOURCE_LENGTH; i++) {
         double rowSum = 0;
-        for (int j = 0; j < stats->iteration; ++j) {
-            rowSum += stats->results[j][i];
+        double sumSquares = 0;
+
+        // Calculate avg for each char
+        for (int j = 0; j < iterationsCount; ++j) {
+            if(!stats->skippedIndices[j]) {
+                rowSum += stats->results[j][i];
+            }
         }
-        double avg = rowSum / stats->iteration;
-        stats->averages[i] = avg;
+        double avg = rowSum / (iterationsCount - stats->skippedCount);
+        // Calculate sum of squares
+
+        for (int j = 0; j < iterationsCount; j++) {
+            if(!stats->skippedIndices[j]) {
+                sumSquares += pow(stats->averages[j] - avg, 2);
+            }
+        }
+        //Calculate variance
+        double sumSquared = sumSquares / (iterationsCount - stats->skippedCount - 1);
+
+        //Calculate zScore
+        for (int j = 0; j < iterationsCount; j++) {
+            if(!stats->skippedIndices[j]){
+                stats->skippedIndices[j] = false;
+                double zScore = (stats->results[j][i] - avg) / sqrt(sumSquared);
+                if(zScore > ZSCORE_THRESHOLD){
+                    stats->skippedIndices[j] = true;
+                    stats->skippedCount++;
+                }
+                stats->zScore[j][i] = zScore;
+            }
+        }
+
         if(avg > stats->averages[stats->highestCharIndex]){
             stats->highestCharIndex = i;
         }
+        stats->averages[i] = avg;
+        stats->variance[i] = sqrt(sumSquared);
+        totalSumVariance += sqrt(sumSquared);
+        totalSumAvg += avg;
+        free(strings[i]);
     }
-    stats->iteration++;
-    free(guess);
+    double meanMean = (double) totalSumAvg / (stats->iteration - stats->skippedCount);
+    double bigboySumSquared = 0;
+    for (int i = 0; i < SOURCE_LENGTH; i++) {
+        bigboySumSquared += pow(meanMean - stats->averages[i],2);
+    }
+
+    double bigboyZscore = (stats->averages[stats->highestCharIndex] - stats->totalAverage) / sqrt(bigboySumSquared);
 
 
+    double pValue = 2 * (1 - 0.5 * (1 + erf(bigboyZscore / sqrt(2))));
+    stats->pValue = pValue;
     return stats;
 }
 
 int main() {
-
-//    // Compute variance and standard div
-//    for (int charIndex = 0; charIndex < SOURCE_LENGTH; charIndex++) {
-//        double sumSquares = 0;
-//        for (int iterIndex = 0; iterIndex < ITERATIONS; iterIndex++) {
-//            sumSquares += pow(stats.results[iterIndex][charIndex] - stats.averages[charIndex], 2);
-//        }
-//
-//        stats.variance[charIndex] = sqrt(sumSquares / (ITERATIONS - SKIPP_START));
-//        for (int iterIndex = 0; iterIndex < ITERATIONS; iterIndex++) {
-//            stats.zScore[iterIndex][charIndex] = (stats.results[iterIndex][charIndex] - stats.averages[charIndex]) / stats.variance[charIndex];
-//        }
-//
-//    }
     // Raylib
     SetTraceLogLevel(LOG_FATAL);
     InitWindow(WIDTH, HEIGHT, "Side Channel attack");
     srand(time(NULL));
     SetTargetFPS(FRAME_TARGET);
 
-
+    int charIndex = rand() % SOURCE_LENGTH;
     int passwordLength = BLOCKS * BLOCK_SIZE;
-    char* password = (char*) malloc(passwordLength * sizeof(char*));
-    password[passwordLength] = '\0';
+    char* password = (char*) malloc(passwordLength);
+    generatePassword(password, passwordLength, 0);
 
-    for (int i = 0; i < BLOCKS; ++i) {
-        fillWithChar(password, passwordLength , i * BLOCK_SIZE, &source[(i + CHAR_OFFSET) % SOURCE_LENGTH]);
-    }
-
-
+    // Infra
     int spacing = (WIDTH) / SOURCE_LENGTH;
     Stats* stats = (Stats*) malloc(sizeof(Stats));
     stats->iteration = 0;
 
-    int startLine = HEIGHT - 2 * MARGIN;
+    int startLine = HEIGHT - 4 * MARGIN;
     int endLine = 3 * MARGIN;
+    int bottomRow = startLine + 2 * MARGIN;
     int graphSize = startLine - endLine;
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        if (IsKeyDown(KEY_BACKSPACE)) {
-            stats->iteration = 0;
+        if(IsKeyPressed(KEY_UP)){
+            resetStats(stats);
+            generatePassword(password, passwordLength, ++charIndex);
         }
-
+        if(IsKeyPressed(KEY_DOWN)){
+            resetStats(stats);
+            generatePassword(password, passwordLength, --charIndex);
+        }
+        if (IsKeyPressed(KEY_RIGHT)) {
+            resetStats(stats);
+            generatePassword(password, ++passwordLength, charIndex);
+        }
+        if (IsKeyPressed(KEY_LEFT)) {
+            generatePassword(password, --passwordLength, charIndex);
+            resetStats(stats);
+        }
+        if (IsKeyDown(KEY_BACKSPACE)) {
+            resetStats(stats);
+        }
         if (IsKeyDown(KEY_SPACE)) {
-            if(stats->iteration < ITERATIONS){
-                stats = iterateAttack(stats, password);
+            if(stats->iteration < MAX_ITERATIONS){
+                stats = iterateAttack(stats, password, passwordLength);
             }
         }
         DrawText(TextFormat("Password: %s", password), MARGIN,  MARGIN, FONT_SIZE, BLACK);
-        DrawText(TextFormat("Iteration: %d", stats->iteration), WIDTH - 8 * MARGIN,  MARGIN, FONT_SIZE, BLACK);
+        DrawText(TextFormat("Char count: %u", passwordLength), WIDTH - 8 * MARGIN,  MARGIN, FONT_SIZE, BLACK);
+        DrawText(TextFormat("Iteration: %d", stats->iteration), MARGIN - FONT_SIZE / 4,  bottomRow, FONT_SIZE, BLACK);
+        DrawText(TextFormat("Skipped: %d", stats->skippedCount), MARGIN - FONT_SIZE / 4 + 8 * MARGIN, bottomRow , FONT_SIZE, BLACK);
+        DrawText(TextFormat("Average: %.2fns", stats->totalAverage), MARGIN - FONT_SIZE / 4 + 16 * MARGIN, bottomRow , FONT_SIZE, BLACK);
+        DrawText(TextFormat("Highest: %.2fns", stats->averages[stats->highestCharIndex]), MARGIN - FONT_SIZE / 4 + 26 * MARGIN, bottomRow , FONT_SIZE, BLACK);
+        DrawText(TextFormat("P-value: %.2f", stats->pValue), MARGIN - FONT_SIZE / 4 + 35 * MARGIN, bottomRow , FONT_SIZE, BLACK);
 
         for (int i = 0; i < SOURCE_LENGTH; i++) {
-            int xPos = MARGIN + spacing * i;
+            int xPos = MARGIN + spacing * i + FONT_SIZE / 4;
             if(stats->iteration > 0){
+
                 for (int j = 0; j < stats->iteration; ++j) {
+                    if(stats->skippedIndices[j]) continue;
                     double value = stats->results[j][i];
                     int yPos = startLine - SCALE(value, graphSize);
                     if(yPos > startLine ){
@@ -150,14 +204,13 @@ int main() {
                     //int jitter = (i*i*j*j % 10) - 5;
                     DrawCircle(xPos , yPos, 4.0f, BLUE);
                 }
-                DrawCircle(xPos , startLine - SCALE(stats->averages[i], graphSize), 6.0f, RED);
+                DrawCircle(xPos , startLine - SCALE(stats->averages[i] , graphSize) , 6.0f, RED);
                 if(stats->highestCharIndex == i){
                     DrawRectangle(xPos - (FONT_SIZE / 2.0f), startLine + 5, 22, 22, RED);
                 }
             }
-            DrawLine(xPos,startLine ,xPos , endLine,GRAY);
+            DrawLine(xPos,startLine ,xPos, endLine,GRAY);
             DrawText(TextFormat("%c", source[i]), xPos - FONT_SIZE / 4, startLine + 5, FONT_SIZE, BLACK);
-
         }
 
         EndDrawing();
@@ -165,6 +218,17 @@ int main() {
     free(stats);
     CloseWindow();
     return 0;
+}
+
+void generatePassword(char *password, int passwordLength, int charIndex) {
+    for (int i = 0; i < BLOCKS; ++i) {
+        fillWithChar(password, passwordLength , i * BLOCK_SIZE, &source[charIndex % SOURCE_LENGTH]);
+    }
+    password[passwordLength] = '\0';
+}
+
+void resetStats(Stats* stats){
+    memset(stats,0, sizeof(Stats));
 }
 
 char* heapString(char constString[]){
@@ -181,8 +245,8 @@ char* fillWithChar(char* buffer, int length, int offset, const char* character){
 }
 
 
-double getCurrentTime(){
+long getCurrentTime(){
     struct timespec time;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
-    return (double) time.tv_sec * (long)1e9 + time.tv_nsec;
+    return time.tv_sec * (long)1e9 + time.tv_nsec;
 }
