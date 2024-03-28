@@ -1,17 +1,17 @@
-#include <stdio.h>
 #include <raylib.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include <stdint.h>
 #include <math.h>
+
+#define NOBUILD_IMPLEMENTATION
+#include "../nob.h"
 
 #define WIDTH 1000
 #define HEIGHT 700
 #define MARGIN 20
 #define FRAME_TARGET 30
 #define FONT_SIZE 20
-
 #define SOURCE_LENGTH 26
 #define MAX_ITERATIONS 10000
 #define SKIPP_START 5
@@ -22,6 +22,7 @@
 
 #define SCALAR 1200
 #define SCALE(value, scalar) (value / SCALAR) * scalar
+
 
 char* fillWithChar(char* buffer, int length, int offset, const char* character);
 long getCurrentTime();
@@ -134,7 +135,8 @@ Stats* iterateAttack(Stats* stats, char* password, int passwordLength){
     return stats;
 }
 
-int main() {
+int main(){
+
     // Raylib
     SetTraceLogLevel(LOG_FATAL);
     InitWindow(WIDTH, HEIGHT, "Side Channel attack");
@@ -188,7 +190,7 @@ int main() {
         DrawText(TextFormat("Skipped: %d", stats->skippedCount), MARGIN - FONT_SIZE / 4 + 8 * MARGIN, bottomRow , FONT_SIZE, BLACK);
         DrawText(TextFormat("Average: %.2fns", stats->totalAverage), MARGIN - FONT_SIZE / 4 + 16 * MARGIN, bottomRow , FONT_SIZE, BLACK);
         DrawText(TextFormat("Highest: %.2fns", stats->averages[stats->highestCharIndex]), MARGIN - FONT_SIZE / 4 + 26 * MARGIN, bottomRow , FONT_SIZE, BLACK);
-        DrawText(TextFormat("P-value: %.2f", stats->pValue), MARGIN - FONT_SIZE / 4 + 35 * MARGIN, bottomRow , FONT_SIZE, BLACK);
+        DrawText(TextFormat("P-value: %.2f", stats->pValue), MARGIN - FONT_SIZE / 4 + 36 * MARGIN, bottomRow , FONT_SIZE, BLACK);
 
         for (int i = 0; i < SOURCE_LENGTH; i++) {
             int xPos = MARGIN + spacing * i + FONT_SIZE / 4;
