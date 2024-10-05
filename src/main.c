@@ -4,11 +4,8 @@
 #include <string.h>
 #include <math.h>
 
-#define NOBUILD_IMPLEMENTATION
-#include "../nob.h"
-
 #define WIDTH 1000
-#define HEIGHT 700
+#define HEIGHT 600
 #define MARGIN 20
 #define FRAME_TARGET 30
 #define FONT_SIZE 20
@@ -139,7 +136,8 @@ int main(){
 
     // Raylib
     SetTraceLogLevel(LOG_FATAL);
-    InitWindow(WIDTH, HEIGHT, "Side Channel attack");
+//    SetConfigFlags(FLAG_WINDOW_HIGHDPI);
+    InitWindow(WIDTH , HEIGHT - 35, "Side Channel attack");
     srand(time(NULL));
     SetTargetFPS(FRAME_TARGET);
 
@@ -191,6 +189,7 @@ int main(){
         DrawText(TextFormat("Average: %.2fns", stats->totalAverage), MARGIN - FONT_SIZE / 4 + 16 * MARGIN, bottomRow , FONT_SIZE, BLACK);
         DrawText(TextFormat("Highest: %.2fns", stats->averages[stats->highestCharIndex]), MARGIN - FONT_SIZE / 4 + 26 * MARGIN, bottomRow , FONT_SIZE, BLACK);
         DrawText(TextFormat("P-value: %.2f", stats->pValue), MARGIN - FONT_SIZE / 4 + 36 * MARGIN, bottomRow , FONT_SIZE, BLACK);
+        DrawCircle(WIDTH , HEIGHT , 6.0f, RED);
 
         for (int i = 0; i < SOURCE_LENGTH; i++) {
             int xPos = MARGIN + spacing * i + FONT_SIZE / 4;
